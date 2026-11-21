@@ -97,17 +97,95 @@ footer{border-top:1px solid var(--line);padding:30px 0;color:var(--muted);font-s
 </section>
 </div>
 </main>
+<div class="wrap" style="padding:0 0 28px"><p style="color:var(--muted);font-size:11px;text-align:center">Developer setup: add your Supabase Project URL and anon/public key in the configuration near the bottom of this file.</p></div>
 <footer class="wrap"><a class="brand" href="#"><span class="logo">C</span> campus<span style="color:var(--mint)">connect</span></a><span>Made for students, powered by community. © 2026 Campus Connect</span><span>Discover · Connect · Belong</span></footer>
-<div class="modal-backdrop" id="modal"><div class="modal"><button onclick="closeModal()" style="float:right;background:none;border:0;color:var(--muted);font-size:22px">×</button><div class="kicker">YOUR CAMPUS STARTS HERE</div><h3 id="modalTitle">Join Campus Connect</h3><p>Be part of the student community. This is a front-end demo form—connect it to your sign-up system to enable accounts.</p><form onsubmit="event.preventDefault();closeModal();showToast('Thanks! Your demo sign-up is ready to connect.');"><label for="name" style="font-size:12px;color:var(--muted)">Your name</label><input id="name" placeholder="e.g. Alex Kumar" required><label for="email" style="font-size:12px;color:var(--muted)">College email</label><input id="email" type="email" placeholder="you@college.edu" required><div class="modal-actions"><button class="btn primary" type="submit">Continue ↗</button><button class="btn ghost" type="button" onclick="closeModal()">Maybe later</button></div></form></div></div>
+<div class="modal-backdrop" id="modal"><div class="modal"><button onclick="closeModal()" style="float:right;background:none;border:0;color:var(--muted);font-size:22px">×</button><div class="kicker">YOUR CAMPUS STARTS HERE</div><h3 id="modalTitle">Join Campus Connect</h3><p>Create your student account or log in. Your account will be securely managed by Supabase Authentication.</p><form id="authForm" onsubmit="handleAuth(event)"><div id="nameField"><label for="name" style="font-size:12px;color:var(--muted)">Your name</label><input id="name" autocomplete="name" placeholder="e.g. Alex Kumar"></div><label for="email" style="font-size:12px;color:var(--muted)">College email</label><input id="email" type="email" autocomplete="email" placeholder="you@college.edu" required><label for="password" style="font-size:12px;color:var(--muted)">Password</label><input id="password" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required><div class="modal-actions"><button class="btn primary" id="authSubmit" type="submit">Create account ↗</button><button class="btn ghost" type="button" onclick="closeModal()">Cancel</button></div><p id="authSwitch" style="margin:14px 0 0;font-size:12px">Already registered? <a href="#" onclick="event.preventDefault();setAuthMode('signin')" style="color:var(--mint)">Log in</a></p></form></div></div>
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// 1) Replace these two placeholders with your Supabase Project URL and anon/public key.
+// Never put a service_role or secret key in browser code.
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const supabaseReady = SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_");
+const supabaseClient = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let authMode = "signup";
+let pendingClub = null;
+
 const filters=document.querySelectorAll('.filter');
 filters.forEach(btn=>btn.addEventListener('click',()=>{filters.forEach(b=>b.classList.remove('active'));btn.classList.add('active');const f=btn.dataset.filter;document.querySelectorAll('#clubGrid .card').forEach(card=>{card.style.display=(f==='all'||card.dataset.category===f)?'block':'none'})}));
-function openModal(title){document.getElementById('modalTitle').textContent=title;document.getElementById('modal').classList.add('show')}
+function setAuthMode(mode){
+  authMode = mode;
+  const isSignup = mode === "signup";
+  document.getElementById("modalTitle").textContent = isSignup ? (pendingClub ? "Join " + pendingClub : "Join Campus Connect") : "Welcome back";
+  document.getElementById("nameField").style.display = isSignup ? "block" : "none";
+  document.getElementById("name").required = isSignup;
+  document.getElementById("password").autocomplete = isSignup ? "new-password" : "current-password";
+  document.getElementById("authSubmit").textContent = isSignup ? "Create account ↗" : "Log in ↗";
+  document.getElementById("authSwitch").innerHTML = isSignup
+    ? 'Already registered? <a href="#" onclick="event.preventDefault();setAuthMode(&quot;signin&quot;)" style="color:var(--mint)">Log in</a>'
+    : 'New to Campus Connect? <a href="#" onclick="event.preventDefault();setAuthMode(&quot;signup&quot;)" style="color:var(--mint)">Create an account</a>';
+}
+function openModal(title){
+  if(title === "Join Campus Connect" || title === "Sign in") pendingClub = null;
+  else if(title.startsWith("Join ")) pendingClub = title.slice(5);
+  setAuthMode(title === "Sign in" ? "signin" : "signup");
+  document.getElementById("modal").classList.add("show");
+}
 function closeModal(){document.getElementById('modal').classList.remove('show')}
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
-function showToast(message){const t=document.getElementById('toast');t.textContent=message;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
-function joinClub(name){openModal('Join '+name)}
+function showToast(message){const t=document.getElementById('toast');t.textContent=message;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200)}
+async function handleAuth(event){
+  event.preventDefault();
+  if(!supabaseClient){showToast("Add your Supabase URL and anon key in the HTML first.");return;}
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+  const name=document.getElementById("name").value.trim();
+  const submit=document.getElementById("authSubmit");
+  submit.disabled=true; submit.textContent="Please wait…";
+  try{
+    let result;
+    if(authMode==="signup"){
+      result=await supabaseClient.auth.signUp({email,password,options:{data:{full_name:name}}});
+    }else{
+      result=await supabaseClient.auth.signInWithPassword({email,password});
+    }
+    if(result.error) throw result.error;
+    if(result.data.session){
+      closeModal();
+      showToast(authMode==="signup" ? "Account created. Welcome to Campus Connect!" : "You are now logged in!");
+      await updateAuthNav();
+      if(pendingClub) await joinClub(pendingClub);
+    }else{
+      closeModal();
+      showToast("Check your email to confirm your account, then log in.");
+    }
+  }catch(error){showToast(error.message || "Authentication failed.");}
+  finally{submit.disabled=false;setAuthMode(authMode);}
+}
+async function updateAuthNav(){
+  if(!supabaseClient) return;
+  const {data:{user}}=await supabaseClient.auth.getUser();
+  const loginButton=document.querySelector('.navright .ghost');
+  if(loginButton){loginButton.textContent=user ? "Log out" : "Log in";loginButton.onclick=user ? async()=>{await supabaseClient.auth.signOut();await updateAuthNav();showToast("Logged out.");} : ()=>openModal("Sign in");}
+}
+async function joinClub(name){
+  pendingClub=name;
+  if(!supabaseClient){openModal("Join "+name);showToast("Connect Supabase to save club memberships.");return;}
+  const {data:{user}}=await supabaseClient.auth.getUser();
+  if(!user){openModal("Join "+name);return;}
+  const {data:club,error:clubError}=await supabaseClient.from("clubs").select("id").eq("name",name).maybeSingle();
+  if(clubError) {showToast(clubError.message);return;}
+  if(!club){showToast("This club is not in the database yet. Run the supplied SQL setup.");return;}
+  const {error}=await supabaseClient.from("memberships").upsert({student_id:user.id,club_id:club.id},{onConflict:"student_id,club_id"});
+  if(error) showToast(error.message); else {showToast("You're in! Joined "+name+".");pendingClub=null;}
+}
+async function bootSupabase(){
+  if(!supabaseClient) return;
+  await updateAuthNav();
+  supabaseClient.auth.onAuthStateChange(()=>updateAuthNav());
+}
+bootSupabase();
 const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
 </script>
