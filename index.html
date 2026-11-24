@@ -177,8 +177,7 @@ async function joinClub(name){
   const {data:club,error:clubError}=await supabaseClient.from("clubs").select("id").eq("name",name).maybeSingle();
   if(clubError) {showToast(clubError.message);return;}
   if(!club){showToast("This club is not in the database yet. Run the supplied SQL setup.");return;}
-  const {error}=await supabaseClient.from("memberships").insert({student_id:user.id,club_id:club.id});
-  if(error && error.code === "23505"){showToast("You're already a member of "+name+".");pendingClub=null;return;}
+  const {error}=await supabaseClient.from("memberships").upsert({student_id:user.id,club_id:club.id},{onConflict:"student_id,club_id"});
   if(error) showToast(error.message); else {showToast("You're in! Joined "+name+".");pendingClub=null;}
 }
 async function bootSupabase(){
