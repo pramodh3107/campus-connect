@@ -106,7 +106,7 @@ footer{border-top:1px solid var(--line);padding:30px 0;color:var(--muted);font-s
 // 1) Replace these two placeholders with your Supabase Project URL and anon/public key.
 // Never put a service_role or secret key in browser code.
 const SUPABASE_URL = "https://supabase.com/dashboard/project/phepnrnfsmmhqelbndda";
-const SUPABASE_ANON_KEY = "sb_publishable_FfUkqTGOY0kZSisw1eoZ0g_z6td0KIQ";
+const SUPABASE_ANON_KEY = "https://phepnrnfsmmhqelbndda.supabase.co";
 const supabaseReady = SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_");
 const supabaseClient = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 let authMode = "signup";
